@@ -1,0 +1,71 @@
+<!--
+        Copyright (c) 2018-2021 K8Debug
+
+        Permission is hereby granted, free of charge, to any person obtaining
+        a copy of this software and associated documentation files (the
+        "Software"), to deal in the Software without restriction, including
+        without limitation the rights to use, copy, modify, merge, publish,
+        distribute, sublicense, and/or sell copies of the Software, and to
+        permit persons to whom the Software is furnished to do so, subject to
+        the following conditions:
+
+        The above copyright notice and this permission notice shall be
+        included in all copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+        NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+        LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+        OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+        WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'" />
+  <link rel="stylesheet" href="css/all.min.css" />
+  <link rel="stylesheet" href="css/materialize.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <title>Vpk Snapshot</title>
+</head>
+
+<body>
+  <div class="container center-align">
+    <h3><i class="fas fa-file-code"></i> VpK Snapshot</h3>
+    <p>Create VpK (Visual parsed Kubernetes) snapshot</p>
+    <form id="snapshot-form" class="col s12">
+      <div class="input-field">
+        <div class="input-field col s12">
+          <label for="getcmd">CLI command (default: kubectl)</label>
+          <input id="getcmd" name="getcmd" type="text" placeholder="examples: kubectl, oc, etc" />
+        </div>
+        <div class="input-field col s12">
+          <label for="snapshot_prefix">Snapshot prefix (default: snapshot)</label>
+          <input id="snap_prefix" name="snap_prefix" type="text" class="validate" placeholder="text with no spaces" />
+        </div>
+      </div>
+
+      <input type="submit" value="Get snapshot" class="btn black tooltip" data-position="bottom">
+    </form>
+    <div>
+      <p>
+        Output Path:
+      </p>
+      <p>
+        <span id="output-path"></span>
+      </p>
+    </div>
+    <div>
+      <textarea rows="2000" cols="100" id="command-output" style="height: 200px;"></textarea>
+    </div>
+  </div>
+  <script src="js/materialize.min.js"></script>
+  <script src="js/gui-func.js"></script>
+</body>
+
+</html>

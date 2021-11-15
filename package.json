@@ -1,0 +1,41 @@
+{
+  "name": "vpk-snapshot",
+  "productName": "VpKSnapshot",
+  "version": "1.0.0",
+  "description": "App to produce VpK K8s snapshot",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dev": "nodemon --exec electron .",
+    "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/icon.icns --prune=true --out=release-builds",
+    "package-win": "electron-packager . --overwrite --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=false --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"VpKSnapshot\"",
+    "package-linux": "electron-packager . --overwrite --platform=linux --arch=x64 --icon=assets/icons/png/1024x1024.png --prune=false --out=release-builds"
+  },
+  "author": "Dave Weilert",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^9.4.4",
+    "electron-builder": "^22.13.1",
+    "electron-packager": "^14.2.1",
+    "nodemon": "^2.0.3"
+  },
+  "dependencies": {
+    "electron-log": "^4.1.2",
+    "fs": "^0.0.2",
+    "fs-extra": "^10.0.0",
+    "slash": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/k8debug/snapshot.git"
+  },
+  "build": {
+    "appId": "com.vpksnap.app",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/icons/mac/icon.icns"
+    }
+  }
+}
