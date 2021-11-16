@@ -49,22 +49,29 @@ let aboutWindow;
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     title: 'Vpk Snapshot',
+    show: false,
     width: isDev ? 1400 : 500,
     height: 700,
     minHeight: 700,
     icon: `${__dirname}/assets/icons/Icon_256x256.png`,
     resizable: isDev ? true : false,
-    backgroundColor: 'white',
+    backgroundColor: '#f6f6f6',
     webPreferences: {
       nodeIntegration: true,
       enableRemoteModule: true,
-      nodeIntegrationInWorker: true
+      nodeIntegrationInWorker: true,
+      worldSafeExecuteJavaScript: true
     },
   })
 
   if (isDev) {
     mainWindow.webContents.openDevTools()
   }
+
+  mainWindow.on('ready-to-show', function () {
+    mainWindow.show();
+    mainWindow.focus();
+  });
 
   mainWindow.loadFile('./app/index.html')
 }
@@ -77,7 +84,9 @@ function createAboutWindow() {
     minHeight: 500,
     icon: `${__dirname}/assets/icons/Icon_256x256.png`,
     resizable: false,
-    backgroundColor: 'white',
+    backgroundColor: '#f6f6f6',
+    worldSafeExecuteJavaScript: true,
+
   })
 
   aboutWindow.loadFile('./app/about.html')

@@ -1,5 +1,5 @@
 .container {
-  width: 400px;
+  width: 450px;
   margin-top: 70px;
   padding: 0 20px;
 }
@@ -15,6 +15,11 @@
 
 .output {
   margin-top: 40px;
+}
+
+#command-output {
+  background-color: white;
+  font-weight: bold;
 }
 
 #output-path {
