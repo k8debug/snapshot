@@ -17,19 +17,21 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+console.log('loading renderer.js');
+
 //const path = require('path')
 const os = require('os')
-const { ipcRenderer, app } = require('electron')
+const { ipcRenderer } = require('electron')
 
 const form = document.getElementById('snapshot-form')
 const getcmd = document.getElementById('getcmd')
 const prefix = document.getElementById('snap_prefix')
 
 const homedir = os.homedir();
+document.getElementById('out-dir').value = homedir;
 
-document.getElementById('output-path').innerText = homedir;
-
-//document.getElementById('output-path').innerText = process.cwd();
+let textarea = document.getElementById('command-output');
+textarea.value = 'Press GET SNAPSHOT button to start';
 
 //   Onsubmit sent values to main and create snapshot
 form.addEventListener('submit', (e) => {
@@ -58,12 +60,13 @@ form.addEventListener('submit', (e) => {
 
     ipcRenderer.send('snapshot:create', {
         'k8sCmd': k8sCmdValue,
-        'prefix': prefixValue
+        'prefix': prefixValue,
+        'timeout': timeout.value
     })
 })
 
-// Status information received from main
-ipcRenderer.on('snapshot:status', (e, args) => {
+// handle status information
+ipcRenderer.on('status', (e, args) => {
     let color;
     if (args.status === 'fail') {
         color = 'red';
@@ -83,14 +86,26 @@ ipcRenderer.on('snapshot:status', (e, args) => {
             html: args.msg,
             classes: color,
         })
+    } else if (args.status === 'where') {
+        //nothing
     }
     appendOutput(args.msg)
 })
 
+// update the output directory information
+ipcRenderer.on('directory:set', (e, args) => {
+    document.getElementById('out-dir').disabled = false;
+    document.getElementById("out-dir").value = args.dir;
+    document.getElementById('out-dir').disabled = true;
+})
+
+function getDirectory() {
+    ipcRenderer.send('getdir');
+}
+
 // append msg to text area and scroll to the bottom
 function appendOutput(msg) {
     getCommandOutput().value += (msg + '\n');
-    let textarea = document.getElementById('command-output');
     textarea.scrollTop = textarea.scrollHeight;
 };
 

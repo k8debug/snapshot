@@ -20,15 +20,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const slash = require('slash');
 const log = require('electron-log');
 const utl = require('./lib/utl');
+
 const homedir = os.homedir();
 
 let getData;
 let baseDir = homedir;
 let basePrefix = 'snapshot';
+let cmdTimeout = 15000;
+let dynDir;
+let versions = [];
+let mainWindow;
+let aboutWindow;
 
 // Set environment
 //process.env.NODE_ENV = 'development';
@@ -43,24 +49,39 @@ if (isMac) {
   process.env.PATH = process.env.PATH + ':/usr/local/bin';
 }
 
-let mainWindow;
-let aboutWindow;
+// display environment info
+console.log('-------------------------------------------\nApplication enviroment information:');
+console.log('-------------------------------------------');
+for (const dependency of ['chrome', 'node', 'electron']) {
+  versions.push({ 'process': dependency, 'version': process.versions[dependency] });
+  console.log(' * ' + dependency + ' - Version: ' + process.versions[dependency]);
+}
+console.log(' * process.env.NODE_ENV: ' + process.env.NODE_ENV)
+console.log(' * process.platform: ' + process.platform)
+console.log('-------------------------------------------');
 
+
+//--------------------------------
+// window and dialog functions
+//--------------------------------
+
+// main window
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     title: 'Vpk Snapshot',
     show: false,
-    width: isDev ? 1400 : 500,
-    height: 700,
-    minHeight: 700,
+    width: isDev ? 1400 : 550,
+    minWidth: 550,
+    height: 875,
+    minHeight: 875,
     icon: `${__dirname}/assets/icons/Icon_256x256.png`,
     resizable: isDev ? true : false,
     backgroundColor: '#f6f6f6',
     webPreferences: {
       nodeIntegration: true,
-      enableRemoteModule: true,
-      nodeIntegrationInWorker: true,
-      worldSafeExecuteJavaScript: true
+      contextIsolation: false,
+      enableRemoteModule: false,
+      //preload: path.join(__dirname, "app/js/preload.js")
     },
   })
 
@@ -73,26 +94,81 @@ function createMainWindow() {
     mainWindow.focus();
   });
 
+  // display html
   mainWindow.loadFile('./app/index.html')
+
+  // show the output directory in UI
+  mainWindow.webContents.send('directory:set', {
+    'dir': baseDir
+  })
+
 }
 
+// about window
 function createAboutWindow() {
   aboutWindow = new BrowserWindow({
     title: 'About VpK Snapshot',
-    width: 400,
-    height: 500,
-    minHeight: 500,
+    width: 450,
+    height: 600,
     icon: `${__dirname}/assets/icons/Icon_256x256.png`,
     resizable: false,
     backgroundColor: '#f6f6f6',
-    worldSafeExecuteJavaScript: true,
-
   })
 
   aboutWindow.loadFile('./app/about.html')
 }
 
+// help window
+function createHelpWindow() {
+  aboutWindow = new BrowserWindow({
+    title: 'About VpK Snapshot',
+    width: 450,
+    height: 700,
+    icon: `${__dirname}/assets/icons/Icon_256x256.png`,
+    resizable: false,
+    backgroundColor: '#f6f6f6',
+  })
+
+  aboutWindow.loadFile('./app/help.html')
+}
+
+// system dialog to get directory
+function getDirectory() {
+  let options = {
+    // See place holder 1 in above image
+    title: "Select output directory",
+
+    buttonLabel: "Snapshot root directory",
+    // See place holder 2 in above image
+    defaultPath: homedir,
+
+    properties: ['openDirectory']
+  }
+
+  //Synchronous
+  let dir = dialog.showOpenDialogSync(mainWindow, options);
+  console.log(dir)
+
+  if (typeof dir !== 'undefined') {
+    if (Array.isArray(dir)) {
+      if (typeof dir[0] !== 'undefined') {
+        baseDir = dir[0];
+        console.log('sending dir change')
+        mainWindow.webContents.send('directory:set', {
+          'dir': baseDir
+        });
+      }
+    }
+  }
+}
+
+
+//--------------------------------
+// app handlers
+//--------------------------------
+
 app.on('ready', () => {
+
   createMainWindow()
 
   const mainMenu = Menu.buildFromTemplate(menu)
@@ -101,6 +177,25 @@ app.on('ready', () => {
   mainWindow.on('ready', () => (mainWindow = null))
 })
 
+app.on('window-all-closed', () => {
+  if (!isMac) {
+    app.quit()
+  }
+})
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createMainWindow()
+  }
+})
+
+app.allowRendererProcessReuse = true
+
+
+//--------------------------------
+// Custom menu configuration
+//--------------------------------
+
 const menu = [
   ...(isMac   // macOS
     ? [
@@ -108,11 +203,23 @@ const menu = [
         label: app.name,
         submenu: [
           {
-            label: 'About',
+            label: 'About VpK Snapshot',
             click: createAboutWindow,
           },
+          {
+            label: 'Get Started',
+            click: createHelpWindow,
+          },
+          {
+            type: 'separator'
+          },
+          {
+            label: 'Quit VpK Snapshot',
+            accelerator: 'CmdOrCtrl+Q',
+            click: () => app.quit(),
+          },
         ],
-      },
+      }
     ]
     : []),
   {
@@ -124,9 +231,17 @@ const menu = [
         label: 'Help',
         submenu: [
           {
+            label: 'Get Started',
+            click: createHelpWindow,
+          },
+          {
+            type: 'separator'
+          },
+          {
             label: 'About',
             click: createAboutWindow,
           },
+
         ],
       },
     ]
@@ -146,19 +261,14 @@ const menu = [
     : []),
 ]
 
-app.on('window-all-closed', () => {
-  if (!isMac) {
-    app.quit()
-  }
-})
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createMainWindow()
-  }
-})
+//------------------------------------
+// Handle ipc messages sent to main.js
+//------------------------------------
 
-app.allowRendererProcessReuse = true
+ipcMain.on('getdir', () => {
+  getDirectory();
+})
 
 ipcMain.on('snapshot:create', (e, options) => {
 
@@ -166,11 +276,26 @@ ipcMain.on('snapshot:create', (e, options) => {
     basePrefix = options.prefix;
   }
 
+  if (options.timeout !== '') {
+    let tmp = parseInt(options.timeout);
+    let check = Number.isInteger(tmp);
+    if (check) {
+      cmdTimeout = tmp * 1000;
+      console.log('Custom CLI timeout: ' + cmdTimeout + ' milliseconds');
+    }
+    tmp = null;
+    check = null;
+  }
+
   getSnapShot(options.k8sCmd, basePrefix)
 
 })
 
-// obtain information from k8s:
+//--------------------------------
+// kubernetes related functions
+//--------------------------------
+
+// Obtain information from k8s by:
 // 1) get list of all api resources and parse for resources that allow get
 // 2) loop through resourcess that support get obtaining all defined along with resource explain
 function getSnapShot(k8sCmd) {
@@ -184,16 +309,32 @@ function getSnapShot(k8sCmd) {
   // get list of api resources and parse
   try {
     cmd = k8sCmd + ' api-resources -o wide';
-    apiOut = execSync(cmd).toString();
+    apiOut = execSync(cmd, { timeout: cmdTimeout }).toString();
     apiTypes = parseAPIs(apiOut);
     apiKeys = Object.keys(apiTypes);
   } catch (err) {
-    mainWindow.webContents.send('snapshot:status', {
-      'msg': 'Error: ' + err.stack,
+
+    let eMsg = 'Get api-resource error: ' + err.message;
+
+    // invalid or missing command
+    if (err.message.indexOf('command not found') > -1) {
+      eMsg = 'Provided k8s CLI command: ' + k8sCmd + ' - was not found';
+    }
+
+    // command timeout
+    if (err.message.indexOf('ETIMEDOUT') > -1) {
+      let tMsg = cmdTimeout / 1000;
+      eMsg = 'Waited ' + tMsg + ' second(s) for command, timeout occurred';
+    }
+
+    mainWindow.webContents.send('status', {
+      'msg': eMsg,
       'status': 'fail'
     })
-    console.log('Error getting api-resource information.  message: ' + err.message);
+
+    console.log('Get api-resource error: ' + err.message);
     console.log(err.stack);
+    return;
   }
 
   let key;
@@ -212,11 +353,11 @@ function getSnapShot(k8sCmd) {
     }
 
   } catch (err) {
-    mainWindow.webContents.send('snapshot:status', {
-      'msg': 'Error: ' + err.message,
+    mainWindow.webContents.send('status', {
+      'msg': 'GetSnapShot error: ' + err.message,
       'status': 'fail'
     })
-    console.log('ERROR: ' + err)
+    console.log('GetSnapShot error: ' + err.message)
     console.log(err.stack)
   }
 
@@ -224,49 +365,75 @@ function getSnapShot(k8sCmd) {
     let writeCnt = writeData(baseDir, basePrefix);
 
     if (writeCnt > 0) {
-      mainWindow.webContents.send('snapshot:status', {
-        'msg': 'Saved : ' + writeCnt + ' resource files',
+      mainWindow.webContents.send('status', {
+        'msg': '----------------------------------',
+        'status': 'where'
+      })
+
+      mainWindow.webContents.send('status', {
+        'msg': 'Snapshot resource files created',
         'status': 'count'
       })
+
+      mainWindow.webContents.send('status', {
+        'msg': 'Directory: ' + dynDir,
+        'status': 'where'
+      })
     } else {
-      mainWindow.webContents.send('snapshot:status', {
+      mainWindow.webContents.send('status', {
         'msg': 'No resource files created',
         'status': 'fail'
       })
     }
   } catch (err) {
-    mainWindow.webContents.send('snapshot:status', {
+    mainWindow.webContents.send('status', {
       'msg': 'Write file error: ' + err.message,
       'status': 'fail'
     })
-    console.log('WRITE FILR ERROR: ' + err)
+    console.log('Write file error: ' + err.message)
     console.log(err.stack)
   }
 
 };
 
 function saveData(data) {
-  if (data.startsWith('{')) {
-    let yf = JSON.parse(data);
-    let it;
-    for (it = 0; it < yf.items.length; it++) {
-      item = yf.items[it];
-      getData.items.push(item);
+  try {
+    if (typeof data === 'undefined') {
+      return;
     }
-  } else {
-    console.log('WARNING: Returned get data not JSON structure');
+    if (data.length === 0) {
+      return;
+    }
+    if (data.startsWith('{')) {
+      let yf = JSON.parse(data);
+      let it;
+      for (it = 0; it < yf.items.length; it++) {
+        item = yf.items[it];
+        getData.items.push(item);
+      }
+    } else {
+      console.log('WARNING: Returned get data not JSON structure');
+    }
+  } catch (err) {
+    mainWindow.webContents.send('status', {
+      'msg': 'Save data error: ' + err.message,
+      'status': 'fail'
+    })
+    console.log(err.message)
+    console.log(err.stack)
   }
 }
 
 
-// get the resources and explains
+// get the resources and explains from kubernetes
 function getK8sInfo(k8sCmd, kind, ns) {
-  const execSync = require('child_process').execSync;
   let execOut;
   let cmd;
   let explainOut;
 
   try {
+    const execSync = require('child_process').execSync;
+
     // build get command to execute, if resource is namespace defined add parameter
     if (ns === true) {
       cmd = k8sCmd + ' get ' + kind + ' --all-namespaces -o json';
@@ -275,13 +442,13 @@ function getK8sInfo(k8sCmd, kind, ns) {
     }
 
     // send cmd to UI
-    mainWindow.webContents.send('snapshot:status', {
+    mainWindow.webContents.send('status', {
       'msg': cmd,
       'status': 'pass'
     })
 
     // get resource information from k8s
-    execOut = execSync(cmd, { maxBuffer: 50 * 1024 * 1024 }).toString();
+    execOut = execSync(cmd, { maxBuffer: 50 * 1024 * 1024, timeout: cmdTimeout }).toString();
 
     // build explain command to execute, obtain the resource definition 
     cmd = k8sCmd + ' explain ' + kind;
@@ -294,99 +461,130 @@ function getK8sInfo(k8sCmd, kind, ns) {
     explainOut = explainOut[0];
 
   } catch (err) {
-    mainWindow.webContents.send('snapshot:status', {
-      'msg': 'Error: ' + err.message,
-      'status': 'fail'
-    })
-    console.log(err.stack);
-  }
+    let eMsg = err.message;
+    // these errors are ignored
+    if (eMsg.indexOf("the server doesn't have a resource type") > -1) {
+      eMsg = '';
+    }
+    if (eMsg.indexOf("the server does not allow this method on the requested resource") > -1) {
+      eMsg = '';
+    }
+    if (eMsg.indexOf("the server could not find the requested resource") > -1) {
+      eMsg = '';
+    }
 
+    if (eMsg !== '') {
+      mainWindow.webContents.send('status', {
+        'msg': 'Get K8s error: ' + eMsg,
+        'status': 'fail'
+      })
+      console.log(err.message);
+      console.log(err.stack);
+    }
+  }
   return execOut;
 };
 
 // Parse the data and build object with resources that support verb 'get'
 function parseAPIs(data) {
-  let tmp = data.split('\n');
-  let hl = tmp.length;
-  if (hl < 1) {
-    return []
-  }
-
-  // Get starting positions of data from heading of report
-  let nPos = tmp[0].indexOf('NAMESPACED');
-  let vPos = tmp[0].indexOf('VERBS');
-  let ePos = tmp[0].indexOf('SHORT');
-  let gPos = tmp[0].indexOf('APIGROUP');
-  let kPos = tmp[0].indexOf('KIND');
-
-  ePos = ePos - 1;
-  let rtn = [];
-  let item;
-  let entry;
-  let wrk;
-  let found = ':';
-  let kind;
-  let fp;
   let apitypes = [];
+  if (typeof data === 'undefined') {
+    return apitypes;
+  }
   let i;
-  let nsd;
-  let kindCap;
-  let key;
-
-  // skip first line of report as it was the headings
-  for (i = 1; i < hl; i++) {
-    item = tmp[i];
-    fp = item.indexOf(' ');
-    kind = item.substring(0, fp);
-    //console.log('kind: ' + kind)
-    if (found.indexOf(':' + kind + ':') > -1) {
-      // already found this kind
-      console.log('API resource kind: ' + kind + ' already found');
-      continue;
-    } else {
-      found = found + kind + ':';
+  try {
+    let tmp = data.split('\n');
+    let hl = tmp.length;
+    if (hl < 1) {
+      return []
     }
 
-    if (item.length > vPos) {
-      wrk = item.substring(vPos);
-      // if verb get is found create entry
-      if (wrk.indexOf('get') > -1) {
-        entry = item.substring(0, ePos);
-        entry = entry.trim() + ':' + item.substring(nPos, nPos + 1);
+    // Get starting positions of data from heading of report
+    let nPos = tmp[0].indexOf('NAMESPACED');
+    let vPos = tmp[0].indexOf('VERBS');
+    let ePos = tmp[0].indexOf('SHORT');
+    let gPos = tmp[0].indexOf('APIGROUP');
+    let kPos = tmp[0].indexOf('KIND');
 
-        // build apikeys
-        let apiG = item.substring(gPos, nPos - 1);
-        apiG = apiG.trim();
-        if (apiG.length === 0) {
-          apiG = '-none-'
-        }
-        kindCap = item.substring(kPos, vPos - 1);
-        kindCap = kindCap.trim();
-        nsd = item.substring(nPos, kPos - 1);
-        nsd = nsd.trim();
-        key = apiG + ':' + kindCap;
-        if (typeof apitypes[key] === 'undefined') {
-          let atype = {};
-          atype.group = apiG;
-          atype.kind = kindCap;
-          atype.namespaced = nsd;
-          apitypes[key] = atype;
-        }
+    ePos = ePos - 1;
+    let item;
+    let entry;
+    let wrk;
+    let found = ':';
+    let kind;
+    let fp;
+    let nsd;
+    let kindCap;
+    let key;
+
+    // skip first line of report as it was the headings
+    for (i = 1; i < hl; i++) {
+      item = tmp[i];
+      fp = item.indexOf(' ');
+      kind = item.substring(0, fp);
+      //console.log('kind: ' + kind)
+      if (found.indexOf(':' + kind + ':') > -1) {
+        // already found this kind so skip this instance
+        continue;
       } else {
-        //console.log('Skipped api-resource does not support get verb: ' + kind);
+        found = found + kind + ':';
+      }
+
+      if (item.length > vPos) {
+        wrk = item.substring(vPos);
+        // if verb get is found create entry
+        if (wrk.indexOf('get') > -1) {
+          entry = item.substring(0, ePos);
+          entry = entry.trim() + ':' + item.substring(nPos, nPos + 1);
+
+          // build apikeys
+          let apiG = item.substring(gPos, nPos - 1);
+          apiG = apiG.trim();
+          if (apiG.length === 0) {
+            apiG = '-none-'
+          }
+          kindCap = item.substring(kPos, vPos - 1);
+          kindCap = kindCap.trim();
+          nsd = item.substring(nPos, kPos - 1);
+          nsd = nsd.trim();
+          key = apiG + ':' + kindCap;
+          if (typeof apitypes[key] === 'undefined') {
+            let atype = {};
+            atype.group = apiG;
+            atype.kind = kindCap;
+            atype.namespaced = nsd;
+            apitypes[key] = atype;
+          }
+        } else {
+          //console.log('Skipped api-resource does not support get verb: ' + kind);
+        }
       }
     }
+  } catch (err) {
+    mainWindow.webContents.send('status', {
+      'msg': 'Parse APIs error: ' + err.message,
+      'status': 'fail'
+    })
+    console.log(err.message)
+    console.log(err.stack)
   }
+
   console.log(i + ' api resources found')
   return apitypes;
 };
 
-// save extracted resource JSON to file for snapshot
-// Note: The file contents are JSON but the file
-// is named with .yaml
+
+// Save extracted JSON data to a seperate file for each resource.  
+//
+// Saved file names are:    config####.yaml
+// #### starts at 1000 and increments by one for each resource.
+//
+// Note: 
+// The file contents are JSON but the file is named with .yaml
+//
 function writeData(dir, prefix) {
 
-  let dynDir = utl.bldDirname(baseDir, prefix);
+  dynDir = utl.bldDirname(baseDir, prefix);
   let cnt = 0;
 
   try {
@@ -419,10 +617,19 @@ function writeData(dir, prefix) {
       }
       console.log('Created ' + cnt + ' resource files');
     } else {
+      mainWindow.webContents.send('status', {
+        'msg': 'Unable to create directory: ' + dynDir,
+        'status': 'fail'
+      })
       console.log('Unable to create directory: ' + dynDir);
     }
   } catch (err) {
-    console.log('Error creating directory: ' + dynDir + ' message: ' + err);
+    mainWindow.webContents.send('status', {
+      'msg': 'WriteData error: ' + err.message,
+      'status': 'fail'
+    })
+    console.log(err.message)
+    console.log(err.stack)
   }
 
   return cnt;

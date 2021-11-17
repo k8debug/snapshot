@@ -28,10 +28,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'" /> -->
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+  <!-- <meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline'"> -->
   <link rel="stylesheet" href="css/all.min.css" />
   <link rel="stylesheet" href="css/materialize.min.css" />
   <link rel="stylesheet" href="css/style.css" />
+  <script src="js/materialize.min.js"></script>
+
   <title>Vpk Snapshot</title>
 </head>
 
@@ -43,32 +45,42 @@
     <p>Create VpK (Visual parsed Kubernetes) snapshot</p>
     <form id="snapshot-form" class="col s12">
       <div class="input-field">
-        <div class="input-field col s12">
-          <label for="getcmd">CLI command (default: kubectl)</label>
-          <input id="getcmd" name="getcmd" type="text" placeholder="examples: kubectl, oc, etc" />
+        <div class="row">
+          <div class="input-field col s8">
+            <label for="getcmd">k8s CLI command</label>
+            <input id="getcmd" name="getcmd" type="text" />
+          </div>
+          <div class="input-field col s4">
+            <label for="timeout">CLI timeout seconds </label>
+            <input id="timeout" name="timeout" type="text" />
+          </div>
         </div>
         <div class="input-field col s12">
-          <label for="snapshot_prefix">Snapshot prefix (default: snapshot)</label>
-          <input id="snap_prefix" name="snap_prefix" type="text" class="validate" placeholder="text with no spaces" />
+          <label for="snapshot_prefix">Snapshot prefix (default: snapshot, text no spaces)</label>
+          <input id="snap_prefix" name="snap_prefix" type="text" />
         </div>
+        <div class="row">
+          <div class="input-field col s12" style="margin-bottom: 0px;">
+            <label for="out-dir">Output root directory (click button to change)</label>
+            <input id="out-dir" name="out-dir" type="text" disabled placeholder="home dir" />
+          </div>
+        </div>
+        <div class="col s12 mar">
+          <span class="btn blue" onclick="getDirectory()">Change output directory</span>
+        </div>
+
       </div>
 
-      <input type="submit" value="Get snapshot" class="btn black tooltip" data-position="bottom">
+      <div class="padtop">
+        <textarea rows="2000" cols="120" id="command-output" style="height: 200px;"></textarea>
+      </div>
+
+      <input type="submit" value="Get snapshot" class="btn blue tooltip" data-position="bottom">
     </form>
-    <div>
-      <p>
-        Output Path: <span id="output-path"></span>
-      </p>
-      <!-- <p>
-        <span id="output-path"></span>
-      </p> -->
-    </div>
-    <div>
-      <textarea rows="2000" cols="120" id="command-output" style="height: 200px;"></textarea>
-    </div>
+
   </div>
   <script src="js/materialize.min.js"></script>
-  <script src="js/gui-func.js"></script>
+  <script src="js/renderer.js"></script>
 </body>
 
 </html>

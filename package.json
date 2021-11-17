@@ -16,7 +16,7 @@
   "author": "Dave Weilert",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^9.4.4",
+    "electron": "^15.3.1",
     "electron-builder": "^22.13.1",
     "electron-packager": "^14.2.1",
     "nodemon": "^2.0.3"

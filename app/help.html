@@ -1,0 +1,100 @@
+<!--
+        Copyright (c) 2018-2021 K8Debug
+
+        Permission is hereby granted, free of charge, to any person obtaining
+        a copy of this software and associated documentation files (the
+        "Software"), to deal in the Software without restriction, including
+        without limitation the rights to use, copy, modify, merge, publish,
+        distribute, sublicense, and/or sell copies of the Software, and to
+        permit persons to whom the Software is furnished to do so, subject to
+        the following conditions:
+
+        The above copyright notice and this permission notice shall be
+        included in all copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+        NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+        LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+        OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+        WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'" />
+    <link rel="stylesheet" href="css/all.min.css" />
+    <link rel="stylesheet" href="css/materialize.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+    <title>VpK Snapshot Get Started</title>
+</head>
+
+<body>
+    <div class="container about center-align">
+        <img src="../assets/icons/Icon_256x256.png" style="width:60px;height:60px;" alt="" />
+        <h6>VpK Snapshot</h6>
+
+        <div class="help">
+
+            <p>VpK (Visual parsed Kubernetes) Snapshot retrieves information from a kubernetes (k8s) instance and
+                creates a snapshot
+                directory with a separate file for each unique k8s resource. The k8s resource type must support the
+                <b>get</b>
+                verb to be included in the snapshot.
+            </p>
+
+            <p>View screen image below the following field numbers for additional assistance.</p>
+            <ul>
+                <li><span class="helpitem">(1)</span>Enter the command this is used to communicate with kubernetes to
+                    retrieve the resource information. The default
+                    is kubectl. Other command examples: <b>oc, microk8 kubectl</b> <br><br>
+                </li>
+
+                <li><span class="helpitem">(2)</span>Number of seconds to wait for command to execute before the command
+                    is terminated.<br><br>
+                </li>
+
+                <li><span class="helpitem">(3)</span>A default value of 'snapshot' will be appended to the front of the
+                    snapshot directory that is created in the output root directory. The default value will be replaced
+                    with this value if provided. <br>Example directory name:
+                    <b>snapshot-2021-11-17-16h-11m-38s</b>
+                    <br><br>
+                </li>
+
+                <li><span class="helpitem">(4)</span>Output root directory is the location where the new snapshot
+                    directory will be created. To modify the provided value press the 'CHANGE OUTPUT DIRECTORY' button.
+                    A system dialog to select a directory will be displayed.<br><br>
+                </li>
+
+                <li><span class="helpitem">(5)</span>Execution information will be displayed in this area. All of the
+                    commands that are executed along with status data will be shown. If any errors occur a summary of
+                    the data will be included in this area. This is a scrollable and selectable area that can be copied
+                    to the clip board.<br><br>
+                </li>
+
+                <li><span class="helpitem">(6)</span>Press the 'GET SNAPSHOT' button to begin the snapshot
+                    capature.<br><br>
+                </li>
+            </ul>
+
+            <p>During the capture process messages will scroll in the status area. Once completed a message in a green
+                bar will be shown at the bottom of the screen indicating the resource files have been created. The
+                status area will also have a similar message along with the snapshot directory that caontains the files.
+            </p>
+        </div>
+
+        <div class="helpbox">
+            <img src="../assets/instructions.png" style="width:350px;height:540px;" alt="" />
+        </div>
+
+
+
+    </div>
+</body>
+
+</html>
