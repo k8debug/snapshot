@@ -38,7 +38,6 @@ let aboutWindow;
 let helpWindow;
 let logArray = [];
 let explains = {};
-let processCount = 0;
 let totalCount = 0;
 let progress;
 
