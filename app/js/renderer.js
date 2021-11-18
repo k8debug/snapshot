@@ -73,6 +73,15 @@ form.addEventListener('submit', (e) => {
 
 // handle status information
 ipcRenderer.on('status', (e, args) => {
+
+    // update progress bar
+    if (typeof args.progress !== 'undefined') {
+        progress = args.progress;
+        let bar = document.getElementById('statusBar');
+        bar.style.display = "block";
+        bar.style.width = args.progress + '%';
+    }
+
     let color;
     if (args.status === 'fail') {
         color = 'red';
@@ -92,10 +101,16 @@ ipcRenderer.on('status', (e, args) => {
             html: args.msg,
             classes: color,
         })
+
+        // ensure status bar is at zero, not shown
+        let bar = document.getElementById('statusBar');
+        bar.style.display = "none";
+
     } else if (args.status === 'where') {
         //nothing
     }
-    appendOutput(args.msg)
+
+    appendOutput(args.msg, progress)
 })
 
 // update the output directory information
@@ -115,17 +130,6 @@ ipcRenderer.on('logmsg', (e, args) => {
         logData += (msgs[i] + '\n');
     }
 
-    let logTextarea = document.createElement("textarea");
-    logTextarea.name = "log-output";
-    logTextarea.maxLength = "10000";
-    logTextarea.cols = "120";
-    logTextarea.rows = "80";
-    logTextarea.style.height = "500px";
-    logTextarea.style.width = "770px";
-    logTextarea.style.marginLeft = "15px";
-    logTextarea.style.marginRight = "15px";
-    logTextarea.value = logData;
-
     logWindow = window.open(
         './logfile.html',
         'popup',
@@ -133,8 +137,7 @@ ipcRenderer.on('logmsg', (e, args) => {
     );
 
     logWindow.onload = () => {
-        //now we have access to popup window dom   
-        logWindow.document.body.appendChild(logTextarea);
+        logWindow.document.getElementById("log-output").value = logData;
     };
 })
 

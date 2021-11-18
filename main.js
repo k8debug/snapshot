@@ -38,10 +38,13 @@ let aboutWindow;
 let helpWindow;
 let logArray = [];
 let explains = {};
+let processCount = 0;
+let totalCount = 0;
+let progress;
 
 // Set environment
-//process.env.NODE_ENV = 'development';
-process.env.NODE_ENV = 'production';
+process.env.NODE_ENV = 'development';
+//process.env.NODE_ENV = 'production';
 
 const isDev = process.env.NODE_ENV !== 'production' ? true : false;
 const isMac = process.platform === 'darwin' ? true : false;
@@ -294,6 +297,7 @@ ipcMain.on('snapshot:create', (e, options) => {
 
   if (options.prefix !== '') {
     basePrefix = options.prefix;
+    logit('Custom prefix: ' + basePrefix);
   }
 
   if (options.timeout !== '') {
@@ -307,7 +311,7 @@ ipcMain.on('snapshot:create', (e, options) => {
     check = null;
   }
 
-  getSnapShot(options.k8sCmd, basePrefix)
+  getSnapShot(options.k8sCmd)
 
   writeExplains();
 
@@ -339,6 +343,12 @@ function getSnapShot(k8sCmd) {
     apiOut = execSync(cmd, { timeout: cmdTimeout }).toString();
     apiTypes = parseAPIs(apiOut);
     apiKeys = Object.keys(apiTypes);
+
+    // save number of resource types to process for status bar
+    if (apiKeys.length > 0) {
+      totalCount = apiKeys.length;
+    }
+
   } catch (err) {
 
     let eMsg = 'Get api-resource error: ' + err.message;
@@ -376,7 +386,7 @@ function getSnapShot(k8sCmd) {
       kind = apiTypes[key].kind;
       kind = kind.toLowerCase();
       ns = apiTypes[key].namespaced;
-      rtnData = getK8sInfo(k8sCmd, kind, ns);
+      rtnData = getK8sInfo(k8sCmd, kind, ns, k);
       saveData(rtnData);
     }
 
@@ -461,12 +471,20 @@ function saveData(data) {
 
 
 // get the resources and explains from kubernetes
-function getK8sInfo(k8sCmd, kind, ns) {
+function getK8sInfo(k8sCmd, kind, ns, cnt) {
   let execOut;
   let cmd;
   let explainOut;
 
   try {
+
+    if (typeof cnt !== 'undefined') {
+      cnt++;
+      progress = cnt / totalCount;
+      progress = progress * 100;
+      progress = progress.toFixed(2);
+    }
+
     const execSync = require('child_process').execSync;
 
     // build get command to execute, if resource is namespace defined add parameter
@@ -480,7 +498,8 @@ function getK8sInfo(k8sCmd, kind, ns) {
     // send cmd to UI
     mainWindow.webContents.send('status', {
       'msg': cmd,
-      'status': 'pass'
+      'status': 'pass',
+      'progress': progress
     })
 
     // get resource information from k8s
@@ -499,6 +518,8 @@ function getK8sInfo(k8sCmd, kind, ns) {
 
     //save the explains to be written to explains.json
     explains[kind] = explainOut;
+
+    logit(progress + '%' + ' complete');
 
   } catch (err) {
     let eMsg = err.message;
