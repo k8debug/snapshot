@@ -470,7 +470,7 @@ function getK8sInfo(k8sCmd, kind, ns) {
     const execSync = require('child_process').execSync;
 
     // build get command to execute, if resource is namespace defined add parameter
-    if (ns === true) {
+    if (ns === 'true') {
       cmd = k8sCmd + ' get ' + kind + ' --all-namespaces -o json';
     } else {
       cmd = k8sCmd + ' get ' + kind + ' -o json';
@@ -621,7 +621,7 @@ function parseAPIs(data) {
 // Save extracted JSON data to a seperate file for each resource.  
 //
 // Saved file names are:    config####.yaml
-// #### starts at 1000 and increments by one for each resource.
+// #### starts at 10000 and increments by one for each resource.
 //
 // Note: 
 // The file contents are JSON but the file is named with .yaml
@@ -634,7 +634,7 @@ function writeData(dir, prefix) {
   try {
     let mkresult = utl.makedir(dynDir);
     if (mkresult === 'PASS') {
-      let fnum = 1000;
+      let fnum = 10000;
       let fn;
       let oldKind = '@startUp';
       let input;
@@ -708,12 +708,12 @@ function logit(msg) {
 }
 
 function showLog() {
-  logit('sending logs to UI')
-  //createLogWindow();
-
-  //mainWindow.webContents.send('clearlog');
-
-  mainWindow.webContents.send('logmsg', {
-    'messages': logArray
-  });
+  try {
+    logit('sending logs to UI');
+    mainWindow.webContents.send('logmsg', {
+      'messages': logArray
+    });
+  } catch (err) {
+    console.log(err.stack);
+  }
 }
