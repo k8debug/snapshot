@@ -27,6 +27,8 @@ npm run package-win
 npm run package-linux
 ```
 
+Once the application has been packaged the newly created executable my be run like any other native application on the associated operating system.  The packaged application will be placed in a newly created directory __release-builds__ that includes a sud-directory with the executable.
+
 
 ## LICENSE
 
