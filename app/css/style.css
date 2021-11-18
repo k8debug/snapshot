@@ -37,6 +37,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   width: 100%;
   font-size: 135%;
 }
+
 .helpitem {
   text-align: left;
   padding-right: 5px;
@@ -48,6 +49,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 .helpbox {
   margin: 10px;
   border: 1px solid black;
+}
+
+.logmsg {
+  text-align: left;
+  width: 100%;
+  font-size: 135%;
+  color: blue;
+  height: 400px;
 }
 
 .btn {

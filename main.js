@@ -35,6 +35,9 @@ let dynDir;
 let versions = [];
 let mainWindow;
 let aboutWindow;
+let helpWindow;
+let logArray = [];
+let explains = {};
 
 // Set environment
 //process.env.NODE_ENV = 'development';
@@ -50,15 +53,16 @@ if (isMac) {
 }
 
 // display environment info
-console.log('-------------------------------------------\nApplication enviroment information:');
-console.log('-------------------------------------------');
+logit('-------------------------------------------');
+logit('Application enviroment information');
+logit('-------------------------------------------');
 for (const dependency of ['chrome', 'node', 'electron']) {
   versions.push({ 'process': dependency, 'version': process.versions[dependency] });
-  console.log(' * ' + dependency + ' - Version: ' + process.versions[dependency]);
+  logit(' * ' + dependency + ' - Version: ' + process.versions[dependency]);
 }
-console.log(' * process.env.NODE_ENV: ' + process.env.NODE_ENV)
-console.log(' * process.platform: ' + process.platform)
-console.log('-------------------------------------------');
+logit(' * process.env.NODE_ENV: ' + process.env.NODE_ENV)
+logit(' * process.platform: ' + process.platform)
+logit('-------------------------------------------');
 
 
 //--------------------------------
@@ -81,6 +85,7 @@ function createMainWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: false,
+      nativeWindowOpen: true,
       //preload: path.join(__dirname, "app/js/preload.js")
     },
   })
@@ -114,13 +119,12 @@ function createAboutWindow() {
     resizable: false,
     backgroundColor: '#f6f6f6',
   })
-
   aboutWindow.loadFile('./app/about.html')
 }
 
 // help window
 function createHelpWindow() {
-  aboutWindow = new BrowserWindow({
+  helpWindow = new BrowserWindow({
     title: 'About VpK Snapshot',
     width: 450,
     height: 700,
@@ -128,11 +132,10 @@ function createHelpWindow() {
     resizable: false,
     backgroundColor: '#f6f6f6',
   })
-
-  aboutWindow.loadFile('./app/help.html')
+  helpWindow.loadFile('./app/help.html')
 }
 
-// system dialog to get directory
+// system dialog window (used to get new output directory)
 function getDirectory() {
   let options = {
     // See place holder 1 in above image
@@ -147,13 +150,13 @@ function getDirectory() {
 
   //Synchronous
   let dir = dialog.showOpenDialogSync(mainWindow, options);
-  console.log(dir)
+  logit(dir)
 
   if (typeof dir !== 'undefined') {
     if (Array.isArray(dir)) {
       if (typeof dir[0] !== 'undefined') {
         baseDir = dir[0];
-        console.log('sending dir change')
+        logit('sending dir change')
         mainWindow.webContents.send('directory:set', {
           'dir': baseDir
         });
@@ -214,6 +217,13 @@ const menu = [
             type: 'separator'
           },
           {
+            label: 'Runtime log',
+            click: showLog,
+          },
+          {
+            type: 'separator'
+          },
+          {
             label: 'Quit VpK Snapshot',
             accelerator: 'CmdOrCtrl+Q',
             click: () => app.quit(),
@@ -241,7 +251,13 @@ const menu = [
             label: 'About',
             click: createAboutWindow,
           },
-
+          {
+            type: 'separator'
+          },
+          {
+            label: 'Runtime log',
+            click: showLog,
+          },
         ],
       },
     ]
@@ -267,10 +283,14 @@ const menu = [
 //------------------------------------
 
 ipcMain.on('getdir', () => {
+  logit('open change directory dialog');
   getDirectory();
 })
 
 ipcMain.on('snapshot:create', (e, options) => {
+
+  logit('================================================');
+  logit('start - get snapshot');
 
   if (options.prefix !== '') {
     basePrefix = options.prefix;
@@ -281,13 +301,18 @@ ipcMain.on('snapshot:create', (e, options) => {
     let check = Number.isInteger(tmp);
     if (check) {
       cmdTimeout = tmp * 1000;
-      console.log('Custom CLI timeout: ' + cmdTimeout + ' milliseconds');
+      logit('Custom CLI timeout: ' + cmdTimeout + ' milliseconds');
     }
     tmp = null;
     check = null;
   }
 
   getSnapShot(options.k8sCmd, basePrefix)
+
+  writeExplains();
+
+  logit('end - get snapshot');
+  logit('================================================');
 
 })
 
@@ -308,6 +333,8 @@ function getSnapShot(k8sCmd) {
 
   // get list of api resources and parse
   try {
+    logit('get api-resources invoked');
+
     cmd = k8sCmd + ' api-resources -o wide';
     apiOut = execSync(cmd, { timeout: cmdTimeout }).toString();
     apiTypes = parseAPIs(apiOut);
@@ -332,8 +359,8 @@ function getSnapShot(k8sCmd) {
       'status': 'fail'
     })
 
-    console.log('Get api-resource error: ' + err.message);
-    console.log(err.stack);
+    logit('Get api-resource error: ' + err.message);
+    logit(err.stack);
     return;
   }
 
@@ -343,6 +370,7 @@ function getSnapShot(k8sCmd) {
   let rtnData;
 
   try {
+
     for (let k = 0; k < apiKeys.length; k++) {
       key = apiKeys[k];
       kind = apiTypes[key].kind;
@@ -357,8 +385,8 @@ function getSnapShot(k8sCmd) {
       'msg': 'GetSnapShot error: ' + err.message,
       'status': 'fail'
     })
-    console.log('GetSnapShot error: ' + err.message)
-    console.log(err.stack)
+    logit('GetSnapShot error: ' + err.message)
+    logit(err.stack)
   }
 
   try {
@@ -390,8 +418,8 @@ function getSnapShot(k8sCmd) {
       'msg': 'Write file error: ' + err.message,
       'status': 'fail'
     })
-    console.log('Write file error: ' + err.message)
-    console.log(err.stack)
+    logit('Write file error: ' + err.message)
+    logit(err.stack)
   }
 
 };
@@ -399,28 +427,35 @@ function getSnapShot(k8sCmd) {
 function saveData(data) {
   try {
     if (typeof data === 'undefined') {
+      logit('k8s returned get data not JSON structure');
       return;
     }
     if (data.length === 0) {
+      logit('k8s returned get data not JSON structure');
       return;
     }
     if (data.startsWith('{')) {
       let yf = JSON.parse(data);
+      if (typeof yf.items !== 'undefined') {
+        if (typeof yf.items[0] === 'undefined') {
+          logit('k8s returned zero entires for this resource kind');
+        }
+      }
       let it;
       for (it = 0; it < yf.items.length; it++) {
         item = yf.items[it];
         getData.items.push(item);
       }
     } else {
-      console.log('WARNING: Returned get data not JSON structure');
+      logit('WARNING: Returned get data not JSON structure');
     }
   } catch (err) {
     mainWindow.webContents.send('status', {
       'msg': 'Save data error: ' + err.message,
       'status': 'fail'
     })
-    console.log(err.message)
-    console.log(err.stack)
+    logit(err.message)
+    logit(err.stack)
   }
 }
 
@@ -440,6 +475,7 @@ function getK8sInfo(k8sCmd, kind, ns) {
     } else {
       cmd = k8sCmd + ' get ' + kind + ' -o json';
     }
+    logit(cmd);
 
     // send cmd to UI
     mainWindow.webContents.send('status', {
@@ -452,6 +488,7 @@ function getK8sInfo(k8sCmd, kind, ns) {
 
     // build explain command to execute, obtain the resource definition 
     cmd = k8sCmd + ' explain ' + kind;
+    logit(cmd);
 
     // get resource explain
     explainOut = execSync(cmd).toString();
@@ -460,8 +497,12 @@ function getK8sInfo(k8sCmd, kind, ns) {
     explainOut = explainOut.split('FIELDS:')
     explainOut = explainOut[0];
 
+    //save the explains to be written to explains.json
+    explains[kind] = explainOut;
+
   } catch (err) {
     let eMsg = err.message;
+
     // these errors are ignored
     if (eMsg.indexOf("the server doesn't have a resource type") > -1) {
       eMsg = '';
@@ -478,9 +519,11 @@ function getK8sInfo(k8sCmd, kind, ns) {
         'msg': 'Get K8s error: ' + eMsg,
         'status': 'fail'
       })
-      console.log(err.message);
-      console.log(err.stack);
     }
+
+    logit(err.message);
+    logit(err.stack);
+
   }
   return execOut;
 };
@@ -522,9 +565,10 @@ function parseAPIs(data) {
       item = tmp[i];
       fp = item.indexOf(' ');
       kind = item.substring(0, fp);
-      //console.log('kind: ' + kind)
+      //logit('kind: ' + kind)
       if (found.indexOf(':' + kind + ':') > -1) {
         // already found this kind so skip this instance
+        logit('Skipping API-resource already found this resource kind: ' + kind);
         continue;
       } else {
         found = found + kind + ':';
@@ -556,7 +600,7 @@ function parseAPIs(data) {
             apitypes[key] = atype;
           }
         } else {
-          //console.log('Skipped api-resource does not support get verb: ' + kind);
+          //logit('Skipped api-resource does not support get verb: ' + kind);
         }
       }
     }
@@ -565,11 +609,11 @@ function parseAPIs(data) {
       'msg': 'Parse APIs error: ' + err.message,
       'status': 'fail'
     })
-    console.log(err.message)
-    console.log(err.stack)
+    logit(err.message)
+    logit(err.stack)
   }
 
-  console.log(i + ' api resources found')
+  logit(i + ' api resources found')
   return apitypes;
 };
 
@@ -605,7 +649,7 @@ function writeData(dir, prefix) {
             } else {
               dispFnum = fnum + 1;
             }
-            console.log('Resource type: ' + input.kind + ' starts at file : config' + dispFnum + '.yaml')
+            logit('Resource type: ' + input.kind + ' starts at file : config' + dispFnum + '.yaml')
             oldKind = input.kind;
           }
         }
@@ -615,22 +659,61 @@ function writeData(dir, prefix) {
         fs.writeFileSync(fn, input);
         cnt++
       }
-      console.log('Created ' + cnt + ' resource files');
+      logit('Created ' + cnt + ' resource files');
     } else {
       mainWindow.webContents.send('status', {
         'msg': 'Unable to create directory: ' + dynDir,
         'status': 'fail'
       })
-      console.log('Unable to create directory: ' + dynDir);
+      logit('Unable to create directory: ' + dynDir);
     }
   } catch (err) {
     mainWindow.webContents.send('status', {
       'msg': 'WriteData error: ' + err.message,
       'status': 'fail'
     })
-    console.log(err.message)
-    console.log(err.stack)
+    logit(err.message)
+    logit(err.stack)
   }
 
   return cnt;
+}
+
+function writeExplains() {
+  logit('Saving file explains.json');
+  utl.writeExplains(dynDir, explains);
+  explains = {};
+}
+
+function logit(msg) {
+  let output;
+  try {
+    if (typeof msg === 'undefined') {
+      return;
+    }
+    if (typeof msg.length === '') {
+      return;
+    }
+
+    // add date and time stamp
+    output = new Date().toLocaleString() + ' :: ' + msg;
+
+    // add to array
+    logArray.push(output);
+    console.log(output);
+  } catch (err) {
+    console.log('Error in logit: ' + err.message);
+    console.log(err.stack);
+  }
+}
+
+function showLog() {
+  logit('sending logs to UI')
+  //createLogWindow();
+
+  //mainWindow.webContents.send('clearlog');
+
+  mainWindow.webContents.send('logmsg', {
+    'messages': logArray
+  });
 }

@@ -28,10 +28,16 @@ const getcmd = document.getElementById('getcmd')
 const prefix = document.getElementById('snap_prefix')
 
 const homedir = os.homedir();
+
+let logWindow;
+
 document.getElementById('out-dir').value = homedir;
 
 let textarea = document.getElementById('command-output');
 textarea.value = 'Press GET SNAPSHOT button to start';
+
+let logarea = document.getElementById('log-output');
+
 
 //   Onsubmit sent values to main and create snapshot
 form.addEventListener('submit', (e) => {
@@ -99,6 +105,45 @@ ipcRenderer.on('directory:set', (e, args) => {
     document.getElementById('out-dir').disabled = true;
 })
 
+
+// build html element with log data and append to page
+ipcRenderer.on('logmsg', (e, args) => {
+    let msgs = args.messages
+    let logData = '';
+    for (let i = 0; i < msgs.length; i++) {
+        //appendLogMsg().value += (msgs[i] + '\n');
+        logData += (msgs[i] + '\n');
+    }
+
+    let logTextarea = document.createElement("textarea");
+    logTextarea.name = "log-output";
+    logTextarea.maxLength = "10000";
+    logTextarea.cols = "120";
+    logTextarea.rows = "80";
+    logTextarea.style.height = "500px";
+    logTextarea.style.width = "770px";
+    logTextarea.style.marginLeft = "15px";
+    logTextarea.style.marginRight = "15px";
+    logTextarea.value = logData;
+
+    logWindow = window.open(
+        './logfile.html',
+        'popup',
+        'width=800,height=650'
+    );
+
+    logWindow.onload = () => {
+        //now we have access to popup window dom   
+        logWindow.document.body.appendChild(logTextarea);
+    };
+})
+
+// update the output directory information
+ipcRenderer.on('clearlog', () => {
+    console.log('got clear message')
+})
+
+// send request to main for directory change
 function getDirectory() {
     ipcRenderer.send('getdir');
 }
@@ -113,4 +158,3 @@ function appendOutput(msg) {
 function getCommandOutput() {
     return document.getElementById("command-output");
 };
-
